@@ -19,6 +19,8 @@ class MxitUser
     protected $_registeredCountry;
     protected $_gender;
 
+	//Eric: Please add the __construct method and make it call the constructFromHTTPHeaders method
+	
     public function setId($userId)
     {
         $this->_id = (int) $userId;
@@ -237,16 +239,16 @@ class MxitUser
 	}
 	
 	
-	public function create()
+	public function constructFromHTTPHeaders()
 	{
-		$getallheaders = $this->mapHTTPHeadersToUserArray();
+		$headersArray = $this->mapHTTPHeadersToUserArray();
 		
-		$pixels = explode('x', $getallheaders['UA_PIXELS']);	
-		$location = explode(',', $getallheaders['X_MXIT_LOCATION']);
-		$profile = explode(',', $getallheaders['X_MXIT_PROFILE']);
-		$userid = $getallheaders['X_MXIT_USERID_R'];
-		$nick = $getallheaders['X_MXIT_NICK'];
-		$useragent = $getallheaders['X_DEVICE_USER_AGENT'];
+		$pixels = explode('x', $headersArray['UA_PIXELS']);	
+		$location = explode(',', $headersArray['X_MXIT_LOCATION']);
+		$profile = explode(',', $headersArray['X_MXIT_PROFILE']);
+		$userid = $headersArray['X_MXIT_USERID_R'];
+		$nick = $headersArray['X_MXIT_NICK'];
+		$useragent = $headersArray['X_DEVICE_USER_AGENT'];
 		
 		// setting values for user using the sent header values
 		$this->setMxitUserId($userid)
