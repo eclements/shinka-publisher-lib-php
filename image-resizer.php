@@ -5,7 +5,7 @@ if (substr($_GET['url'], 0, 26) !== 'http://ox-i.shinka.sh/bba/') {
     exit;
 }
 
-header('Content-Type: image/jpeg');
+header('Content-Type: image/png');
 
 	//if ($this->_requestParam_xid == TESTUSER) print 'Getting raw file...<br/>';
     $raw = file_get_contents($_GET['url']);
@@ -50,7 +50,7 @@ header('Content-Type: image/jpeg');
     }
 
     ob_start();
-    imagepng($output, null, 100);
+    imagepng($output, null, 0);
     $stringdata = ob_get_contents();
     ob_end_clean();
 

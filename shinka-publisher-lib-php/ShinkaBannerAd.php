@@ -183,7 +183,7 @@ class ShinkaBannerAd
 			if (IS_RESIZE_IMAGES)
 			{
 				//With on the fly resizing:
-				$imageURL = '/image.php?url=' . urlencode($this->_mediaUrl) . '&width=' . $this->_mediaWidth . '&height=' . $this->_mediaHeight . '&device=' . $this->_requestParam_deviceWidth;
+				$imageURL = '/image-resizer.php?url=' . urlencode($this->_mediaUrl) . '&width=' . $this->_mediaWidth . '&height=' . $this->_mediaHeight . '&device=' . $this->_requestParam_deviceWidth;
 			}
 			else 
 			{
@@ -194,11 +194,12 @@ class ShinkaBannerAd
 			if ($this->_requestParam_xid == TESTUSER) print 'Image URL: ' . $imageURL;
 			if ($this->_requestParam_xid == TESTUSER) print 'Image Link: <a href="' . $imageURL . '" onclick="window.open(this.href); return false;">link</a>';
 			
+			//print 'Image URL: ' . $imageURL;
+			print 'Image Link: <a href="' . $imageURL . '" onclick="window.open(this.href); return false;">$imageURL</a><br/>';
+			
 			$imageHTML_Tag = '<img src="' .$imageURL. '" align="middle" />';
 			$output.= $imageHTML_Tag;
-			
-			//If no image resizing then add <br>
-			
+				
 			$output.= '<a href="' .$this->_click. '" '.$this->_target. '>' . $this->_alt . '</a>';
 			
 			$this->registerImpression($this->_beacon);
