@@ -18,6 +18,7 @@ class ShinkaBannerAd
 	protected $_requestParam_country;
 	protected $_requestParam_xid;
 	protected $_clientDeviceIP;
+	protected $_adUnitIDToUse;
 	
 	//whizpool: variable defination to save the ad object we get from shinka
 	protected $_ad;
@@ -33,13 +34,8 @@ class ShinkaBannerAd
 	protected $_beacon;
 	protected $_click;
 	protected $_html;
-	
-	//Eric: This needs to go into the config file. Split on separate lines.
-	//API_SERVER defined in config.php
-	//ShinkaConfig defined in config.php
-	
-	//Eric: Define the value that you return from doServerAdRequestForUser, rather as a field of this object: protected $ad; ?
-	
+
+		
 	public function __construct()
 	{
 		$mxitUser = new MxitUser();
@@ -50,7 +46,30 @@ class ShinkaBannerAd
 		$this->_requestParam_deviceWidth = $mxitUser->getDeviceWidth();
 		$this->_requestParam_country = $mxitUser->getCurrentCountryId();		
 		$this->_requestParam_xid = $mxitUser->getMxitUserId();		
-		$this->_clientDeviceIP = $_SERVER['HTTP_X_FORWARDED_FOR'];		
+		$this->_clientDeviceIP = $_SERVER['HTTP_X_FORWARDED_FOR'];	
+
+		//Decide which AdUnitID to use based on the user device width:
+
+		    $deviceWidth = $this->_requestParam_deviceWidth;
+			if ($this->_requestParam_xid == TESTUSER) print 'DeviceWidth:'. $deviceWidth . '<br/>'; 
+			
+			if ($deviceWidth >= 320) 
+			{
+                $this->_adUnitIDToUse = AdUnitID_320;			
+            }
+			elseif ($deviceWidth >= 216)
+			{
+				$this->_adUnitIDToUse = AdUnitID_216;
+			}
+			elseif ($deviceWidth >= 168)
+			{
+				$this->_adUnitIDToUse = AdUnitID_168;
+			}
+			else
+			{
+				$this->_adUnitIDToUse = AdUnitID_120;
+			}
+			if ($this->_requestParam_xid == TESTUSER) print 'AdUnitIDToUse:' . $this->_adUnitIDToUse . '<br/>';			
 	}
 	
 	public function doServerAdRequest()
@@ -62,95 +81,143 @@ class ShinkaBannerAd
 							'c.country' => $this->_requestParam_country,
 							'xid' => $this->_requestParam_xid,
 							);
-		$shinkaConfig = unserialize(ShinkaConfig);
 							
-		foreach($shinkaConfig as $size=>$adUnitId)
-		{
-			if ($size < $this->_requestParam_deviceWidth) 
-			{
-                    break;
-            }
-		}
-		
-		$BannerRequest['auid'] = $adUnitId;// 264843 for text ads;
+		$BannerRequest['auid'] = $this->_adUnitIDToUse;
 			
-		
-		//Eric: The following lines are greek to me :-) Please add some comments to explain what this is doing:
-		//whizpool: following is a http call to server, sending get parameters and headers
-		
-		$get = API_SERVER."?".http_build_query($BannerRequest); //whizpool:  api server address and get parameters to be sent
-		$ch = curl_init();
+		//Following is a http call to server, sending get parameters and headers
+		$get = API_SERVER."?".http_build_query($BannerRequest); //api server address and get parameters to be sent
+		$curlSessionHandle = curl_init();
 		$timeout = TIMEOUT;		
-		curl_setopt($ch,CURLOPT_URL,$get);
-		curl_setopt($ch,CURLOPT_HTTPHEADER, array('User-Agent: Mozilla Compatible Africa Weather','X-Forwarded-For: $ip','Referer: '.REFERER,'Content-length: '.strlen($BannerRequest))); //whizpool:  defining headers to be sent with the call
-		curl_setopt($ch,CURLOPT_RETURNTRANSFER,1);
-		$this->_ad = curl_exec($ch); //whizpool: get the Ad object in json format
-		curl_close($ch); //Eric: Need some more comments here to understand what the $ad variable type is at this point?
+		curl_setopt($curlSessionHandle,CURLOPT_URL,$get);
 		
-		//Rather then return the parameter, remember we are using object orientation. Set the value as a field in this object so that it can be used in future by THIS object.		
-		//Please set the following fields here, using the example provided. The reason for this is that we might need these fields in future:
+		if ($this->_requestParam_xid == TESTUSER) print 'URLUsed: ' . $get . '<br/>';
 		
-		$decoded = json_decode($this->_ad); // decoding the json response		
-		if($decoded->ads->count>0)
-		{
-				$this->_type = $decoded->ads->ad[0]->type;
-				$this->_mediaUrl = $decoded->ads->ad[0]->creative[0]->media;
-				$this->_mediaHeight = $decoded->ads->ad[0]->creative[0]->height;
-				$this->_mediaWidth = $decoded->ads->ad[0]->creative[0]->width;
-				$this->_alt = $decoded->ads->ad[0]->creative[0]->alt;
-				if($decoded->ads->ad[0]->creative[0]->target==self::TARGET_MXIT)
-				{
-					$this->_target = "";
+		//Defining headers to be sent with the call
+		curl_setopt($curlSessionHandle, CURLOPT_USERAGENT, "Mozilla Compatible");
+		curl_setopt($curlSessionHandle, CURLOPT_REFERER, REFERER);
+		curl_setopt($curlSessionHandle,CURLOPT_HTTPHEADER, array('X-Forwarded-For: '.$this->_clientDeviceIP)); //'Content-length: '.strlen($BannerRequest) 
+		curl_setopt($curlSessionHandle,CURLOPT_RETURNTRANSFER,1);
+		
+		//Get the Ad object in json format
+		$this->_ad = curl_exec($curlSessionHandle); 
+		curl_close($curlSessionHandle); 
+		
+		// decoding the json response		
+		$decodedBody = json_decode($this->_ad); 
+		
+        if (isset($decodedBody->ads->version) && $decodedBody->ads->version == 1) {
+            if (isset($decodedBody->ads->count) && $decodedBody->ads->count > 0) {
+                //if (isset($decodedBody->ads->ad[0]) && is_array($decodedBody->ads->ad[0])) {		
+				if (isset($decodedBody->ads->ad)) {	
+					
+					if ($this->_requestParam_xid == TESTUSER) print 'Decoding ad...<br/>';
+					$ad = $decodedBody->ads->ad[0];
+					
+					switch ($ad->type) {
+						case 'image':
+						try {	
+						    if ($this->_requestParam_xid == TESTUSER) print 'Type: Image Ad<br/>';
+							
+							$creative = $ad->creative[0];
+							
+							$this->_mediaUrl = $creative->media;
+							$this->_mediaHeight = $creative->height;
+							$this->_mediaWidth = $creative->width;
+							$this->_alt = $creative->alt;						
+							$this->_beacon = $creative->tracking->impression;
+							$this->_click = $creative->tracking->click;				
+							$this->_type = $this::TYPE_IMAGE;
+							
+							if ($this->_requestParam_xid == TESTUSER) print '_mediaUrl: '.$creative->media.'<br/>';
+							
+							if($creative->target==self::TARGET_MXIT)
+							{
+								$this->_target = "";
+							}
+							else
+							{
+								$this->_target = "onclick='window.open(this.href); return false;'";
+							}		
+							if ($this->_requestParam_xid == TESTUSER) print '_target: '.$this->_target.'<br/>';							
+							
+				        } catch (Exception $e) {
+                                $this->_type = $this::TYPE_INVALID;
+                        }
+						break;
+						case 'html':
+                        try {
+						    if ($this->_requestParam_xid == TESTUSER) print 'Type: HTML Ad<br/>';
+							
+                            $this->_html = $ad->html;
+                            $this->_type = $this::TYPE_HTML;
+                        } catch (Exception $e) {
+                            $this->_type = $this::TYPE_INVALID;
+                        }
+						break;	
+					}
 				}
 				else
 				{
-					$this->_target = "onclick='window.open(this.href); return false;'";
-				}
-				
-				$this->_beacon = $decoded->ads->ad[0]->creative[0]->tracking->impression;
-				$this->_click = $decoded->ads->ad[0]->creative[0]->tracking->click;
-				$this->_html = $decoded->ads->ad[0]->html;
+					if ($this->_requestParam_xid == TESTUSER) print 'No ad returned: <br/>';
+					if ($this->_requestParam_xid == TESTUSER) print $this->_ad .'<br/>';
+				}				
+			}
+			else
+			{
+				if ($this->_requestParam_xid == TESTUSER) print 'Error 3<br>';
+			}
 		}
-		
-		//Use the approach from the example ad.php given in the setFromHttpResponse() method, to set this objects fields from the decoded json repsonse. 
-		//At the end of this method, I want the values from the json response extracted and set as FIELDS on this OBJECT. That is the point of object oriented coding.
+		else
+		{
+			if ($this->_requestParam_xid == TESTUSER) print 'Error 4<br>';
+		}		
 	}
 		
-		
-	public function generateHTMLFromAd()  //Eric Why are you passing in the Ad parameter if this method is inside the BannerAd object. Just read the required values from the fields we have now setup above
+	public function generateHTMLFromAd()  
 	{
+		if ($this->_requestParam_xid == TESTUSER) print 'Generating HTML...<br/>';
+		
 		$output="";
 		if($this->_type==self::TYPE_IMAGE) // if add type is image
-		{			
-			$output.= "<img src=".$this->_mediaUrl." height=".$this->_mediaHeight." width=".$this->_mediaWidth." />";
-			$output.= "<br /><a href=".$this->_click." ".$this->_target.">";
-			$output.=$this->_alt;
-			$output.= "</a>";	
+		{	
+			if (IS_RESIZE_IMAGES)
+			{
+				//With on the fly resizing:
+				$imageURL = '/image.php?url=' . urlencode($this->_mediaUrl) . '&width=' . $this->_mediaWidth . '&height=' . $this->_mediaHeight . '&device=' . $this->_requestParam_deviceWidth;
+			}
+			else 
+			{
+				//No resizing:
+				$imageURL = $this->_mediaUrl;			
+			}
+			
+			if ($this->_requestParam_xid == TESTUSER) print 'Image URL: ' . $imageURL;
+			if ($this->_requestParam_xid == TESTUSER) print 'Image Link: <a href="' . $imageURL . '" onclick="window.open(this.href); return false;">link</a>';
+			
+			$imageHTML_Tag = '<img src="' .$imageURL. '" align="middle" />';
+			$output.= $imageHTML_Tag;
+			
+			//If no image resizing then add <br>
+			
+			$output.= '<a href="' .$this->_click. '" '.$this->_target. '>' . $this->_alt . '</a>';
+			
+			$this->registerImpression($this->_beacon);
+			return $output;
 		}
 		elseif($this->_type==self::TYPE_HTML) // if ad type is html
 		{
-			$output.= "<a href=".$this->_click." ".$this->_target.">";
+			//$output.= "<a href=".$this->_click." ".$this->_target.">";
 			$output.=$this->_html;
-			$output.= "</a>";
+			//$output.= "</a>";
 			
-			
-			//Eric: Check the example, you also need to include the "onclick" logic for this add
+			$this->registerImpression($this->_beacon);
+			return $output;
 		}
 		else // if ad type is not image or html
 		{
 			$this->_type = self::TYPE_INVALID;
-		}
-		
-		if($this->getType()==self::TYPE_INVALID) // check if ad type is valid image or html, if not return empty
-		{
 			return "";
 		}
-		else //whizpool: send the impression call and return the ad output
-		{			
-			$this->registerImpression($this->_beacon);
-			return $output;
-		}
-		
 	}
 	
     public function getType()
@@ -215,6 +282,9 @@ class ShinkaBannerAd
 		$get = $impression;
 		$ch = curl_init();
 		curl_setopt($ch,CURLOPT_URL,$get);		
+		curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla Compatible");
+		curl_setopt($ch, CURLOPT_REFERER, REFERER);
+		curl_setopt($ch,CURLOPT_HTTPHEADER, array('X-Forwarded-For: '.$this->_clientDeviceIP));		
 		curl_setopt($ch,CURLOPT_RETURNTRANSFER,1);
 		$impression_result = curl_exec($ch);
 		curl_close($ch);		
