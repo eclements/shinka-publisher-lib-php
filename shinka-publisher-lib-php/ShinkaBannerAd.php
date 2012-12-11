@@ -193,10 +193,7 @@ class ShinkaBannerAd
 			
 			if ($this->_requestParam_xid == TESTUSER) print 'Image URL: ' . $imageURL;
 			if ($this->_requestParam_xid == TESTUSER) print 'Image Link: <a href="' . $imageURL . '" onclick="window.open(this.href); return false;">link</a>';
-			
-			//print 'Image URL: ' . $imageURL;
-			print 'Image Link: <a href="' . $imageURL . '" onclick="window.open(this.href); return false;">$imageURL</a><br/>';
-			
+				
 			$imageHTML_Tag = '<img src="' .$imageURL. '" align="middle" />';
 			$output.= $imageHTML_Tag;
 				
