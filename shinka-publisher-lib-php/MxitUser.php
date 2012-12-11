@@ -21,6 +21,11 @@ class MxitUser
 
 	//Eric: Please add the __construct method and make it call the constructFromHTTPHeaders method
 	
+	public function __construct()
+	{
+		$this->constructFromHTTPHeaders();
+	}
+	
     public function setId($userId)
     {
         $this->_id = (int) $userId;
